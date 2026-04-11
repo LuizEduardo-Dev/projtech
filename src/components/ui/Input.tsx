@@ -1,9 +1,13 @@
 import { TextInput, StyleSheet, TextInputProps } from "react-native";
 
-export function Input(props: TextInputProps){
+export function Input({style, ...props}: TextInputProps){
 
     return(
-        <TextInput style={styles.input} placeholder={props.placeholder}/>
+        <TextInput 
+        style={styles.input} 
+        placeholder={props.placeholder} 
+        {...props}
+        />
     )
 }
 
