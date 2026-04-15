@@ -6,24 +6,27 @@ export function Input({style, ...props}: TextInputProps){
         <TextInput 
         style={styles.input} 
         placeholder={props.placeholder} 
+        textAlignVertical="center"
+        multiline={false}
+        numberOfLines={1}
+        scrollEnabled={false}
         {...props}
         />
     )
 }
 
 const styles = StyleSheet.create({
-    input: {
-        borderWidth: 1,
-        borderColor: '#DCDCDC',
-        padding: 10,
-        borderRadius: 5,
-        width: '100%',
-        height: 40,
-        marginBottom: 10,
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#333333',
-        backgroundColor: 'white',
-        paddingHorizontal: 10,
-    },
-})
+  input: {
+    borderWidth: 1,
+    borderColor: '#DCDCDC',
+    borderRadius: 5,
+    width: '100%',
+    paddingVertical: 8, // Ajuste conforme necessário
+    paddingHorizontal: 10,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+    backgroundColor: 'white',
+    includeFontPadding: false, // Evita espaçamento extra interno da fonte
+  },
+});   

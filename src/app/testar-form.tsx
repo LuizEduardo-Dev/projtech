@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router'; 
 import { useFormStore } from '../store/useFormStore';
 import { FormRenderer } from '../components/form-renderer/FormRenderer';
@@ -41,6 +41,8 @@ export default function TestarFormulario() {
     }
 
      return (
+        <KeyboardAvoidingView>
+
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.headerText}>Preenchendo: {formAtual.title}</Text>
             
@@ -50,6 +52,7 @@ export default function TestarFormulario() {
                 onSubmit={handleEnviarAuditoria} 
             />
         </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -58,6 +61,8 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         padding: 24,
         backgroundColor: '#F3F4F6',
+        paddingHorizontal: 0,
+        paddingVertical: 20
     },
     headerText: {
         fontSize: 14,
