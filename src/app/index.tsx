@@ -36,7 +36,7 @@ export default function Dashboard() {
                                             <Text style={styles.cardDate}>Criado em: {form.createdAt}</Text>
                                         </View>
                                         
-                                        <FontAwesome name="chevron-right" size={14} color="#2563EB" />
+                                        <FontAwesome name="chevron-right" size={14} color="#475569" />
                                     </TouchableOpacity>
                                 ))
                             )}
@@ -66,5 +66,5 @@ const styles = StyleSheet.create({
     },
     cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
     cardDate: { fontSize: 12, color: '#6B7280', marginTop: 4 },
-    cardArrow: { fontSize: 20, color: '#2563EB' },
+    cardArrow: { fontSize: 20, color: '#475569' },
 });

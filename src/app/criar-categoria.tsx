@@ -1,65 +1,71 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity } from 'react-native';
 import { useFormStore } from '../store/useFormStore';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import FontAwesome from '@expo/vector-icons/FontAwesome5'; // Adicionamos os ícones!
+import FontAwesome from '@expo/vector-icons/FontAwesome5';
+import { Swipeable } from 'react-native-gesture-handler'; 
+
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const categorySchema = z.object({
+    name: z.string().min(1, 'O nome da categoria não pode ser vazio.'),
+});
+type CategoryFormData = z.infer<typeof categorySchema>;
 
 export default function CriarCategoria() {
-    const { categories, addCategory, removeCategory, updateCategory } = useFormStore();
-    const [newCategory, setNewCategory] = useState('');
-    
-    const [editingId, setEditingId] = useState<string | null>(null);
+    const { categories, addCategory, removeCategory } = useFormStore();
 
-    const handleSave = () => {
-        if (newCategory.trim()) {
-            if (editingId) {
-                // Se tem um ID em edição, a gente atualiza
-                updateCategory(editingId, { name: newCategory.trim() });
-                setEditingId(null); // Sai do modo de edição
-            } else {
-                // Se não tem, cria uma nova
-                addCategory(newCategory.trim());
-            }
-            setNewCategory(''); 
-        }
+    const { control, handleSubmit, reset, formState: { errors } } = useForm<CategoryFormData>({
+        resolver: zodResolver(categorySchema),
+        defaultValues: { name: '' }
+    });
+
+    const onSubmit = (data: CategoryFormData) => {
+        addCategory(data.name.trim());
+        reset(); 
     };
 
-    const handleEdit = (id: string, currentName: string) => {
-        setEditingId(id);
-        setNewCategory(currentName); // Joga o nome atual pro Input
-    };
-
-    const handleCancelEdit = () => {
-        setEditingId(null);
-        setNewCategory('');
-    };
+     const renderRightActions = (id: string) => (
+        <TouchableOpacity 
+            style={styles.deleteAction} 
+            onPress={() => removeCategory(id)}
+            activeOpacity={0.6}
+        >
+            <FontAwesome name="trash" size={20} color="white" />
+            <Text style={styles.deleteActionText}>Apagar</Text>
+        </TouchableOpacity>
+    );
 
     return (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={styles.container}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.screen} keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 80}>
+            <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
                 
-                <Text style={styles.title}>{editingId ? 'Editar Categoria' : 'Nova Categoria'}</Text>
-                <Text style={styles.subtitle}>Crie pastas para organizar seus formulários</Text>
-                
-                <Input
-                    placeholder="Nome (Ex: Tarja Preta)"
-                    value={newCategory}
-                    onChangeText={setNewCategory}
-                />
-                
-                <View style={styles.btnWrapper}>
-                   <Button 
-                        label={editingId ? "Atualizar Categoria" : "Salvar Categoria"} 
-                        onPress={handleSave} 
-                        style={styles.saveBtn} 
+                <View style={styles.flatSection}>
+                    <Text style={styles.flatLabel}>Nova Categoria</Text>
+                    <Text style={styles.subtitle}>Crie pastas para organizar seus formulários</Text>
+                    
+                    <Controller
+                        control={control}
+                        name="name"
+                        render={({ field: { onChange, value } }) => (
+                            <View>
+                                <Input
+                                    placeholder="Ex: Checklist de Frota"
+                                    value={value}
+                                    onChangeText={onChange}
+                                    style={[styles.flatInput, errors.name && styles.inputError]}
+                                />
+                                {errors.name && <Text style={styles.errorText}>{errors.name.message}</Text>}
+                            </View>
+                        )}
                     />
-                   {/* Botão de cancelar só aparece se estiver editando */}
-                   {editingId && (
-                       <TouchableOpacity onPress={handleCancelEdit} style={{ marginTop: 12 }}>
-                           <Text style={{ color: '#6B7280', fontWeight: 'bold' }}>Cancelar Edição</Text>
-                       </TouchableOpacity>
-                   )}
+                </View>
+
+                <View style={styles.submitContainer}>
+                   <Button label="Salvar Categoria" onPress={handleSubmit(onSubmit)} style={styles.saveBtn} />
                 </View>
 
                 <View style={styles.separator} />
@@ -67,25 +73,23 @@ export default function CriarCategoria() {
                 <Text style={styles.listTitle}>Categorias Existentes ({categories.length})</Text>
                 
                 <View style={styles.listContainer}>
-                    {categories.map((cat) => (
-                        <View key={cat.id} style={styles.catCard}>
-                            <View style={styles.catInfo}>
-                                <FontAwesome name="folder" size={16} color="#2563EB" />
-                                <Text style={styles.catName}>{cat.name}</Text>
-                            </View>
-                            
-
-                            <View style={styles.actionsRow}>
-                                <TouchableOpacity onPress={() => handleEdit(cat.id, cat.name)} style={styles.actionBtn}>
-                                    <FontAwesome name="pencil-alt" size={16} color="#4B5563" />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity onPress={() => removeCategory(cat.id)} style={styles.actionBtn}>
-                                    <FontAwesome name="trash" size={16} color="#DC2626" />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    ))}
+                    {categories.length === 0 ? (
+                        <Text style={styles.emptyText}>Nenhuma categoria criada ainda.</Text>
+                    ) : (
+                        categories.map((cat) => (
+                            <Swipeable
+                                key={cat.id}
+                                renderRightActions={() => renderRightActions(cat.id)}
+                                friction={2}
+                                rightThreshold={40}
+                            >
+                                <View style={styles.flatCatItem}>
+                                    <FontAwesome name="folder" size={16} color="#475569" />
+                                    <Text style={styles.catName}>{cat.name}</Text>
+                                </View>
+                            </Swipeable>
+                        ))
+                    )}
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
@@ -93,76 +97,52 @@ export default function CriarCategoria() {
 }
 
 const styles = StyleSheet.create({
-    container: { 
-        flexGrow: 1, 
-        padding: 24, 
-        backgroundColor: '#F3F4F6' 
-    },
-   
-    title: { 
-        fontSize: 18, 
-        fontWeight: 'bold', 
-        color: '#111827', 
-        marginBottom: 4 
-    },
-    subtitle: {
-        fontSize: 14,
-        color: '#6B7280',
-        marginBottom: 16,
-    },
-    btn: { 
-        backgroundColor: '#10B981', 
-        marginTop: 8 
-    },
-  
-    separator: { 
-        height: 1, 
-        backgroundColor: '#D1D5DB',
-        marginVertical: 24, // Dá um respiro em cima e embaixo
-    },
-    listTitle: { 
-        fontSize: 16, 
-        fontWeight: 'bold', 
-        color: '#4B5563', 
-        marginBottom: 12 
-    },
-    listContainer: { 
-        gap: 12 
-    },
-    catCard: { 
-        backgroundColor: 'white', 
-        padding: 16, 
-        borderRadius: 8, 
-        borderWidth: 1, 
-        borderColor: '#D1D5DB',
-        flexDirection: 'row', // Alinha os itens na horizontal
-        justifyContent: 'space-between', // Joga a lixeira pro canto direito
+    screen: { flex: 1, backgroundColor: '#F8FAFC' }, // Fundo limpo corporativo
+    scrollContent: { padding: 24 },
+    flatSection: { marginBottom: 16 },
+    flatLabel: { fontSize: 18, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
+    subtitle: { fontSize: 14, color: '#64748B', marginBottom: 16 },
+    
+    // Inputs
+    flatInput: { backgroundColor: 'transparent', borderWidth: 0, borderBottomWidth: 2, borderColor: '#E2E8F0', fontSize: 20, paddingHorizontal: 0, fontWeight: '500', color: '#334155' },
+    inputError: { borderColor: '#EF4444' },
+    errorText: { color: '#EF4444', fontSize: 12, marginTop: 4, fontWeight: '500' },
+    
+    // Botão Centralizado e Menor
+    submitContainer: { alignItems: 'center', marginTop: 16 },
+    saveBtn: { backgroundColor: '#0F172A',paddingHorizontal: 32 , borderRadius: 8 },
+    
+    separator: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 32 },
+    
+    listTitle: { fontSize: 16, fontWeight: 'bold', color: '#475569', marginBottom: 16 },
+    listContainer: { backgroundColor: 'transparent' }, // Para o swipe não bugar
+    emptyText: { color: '#94A3B8', fontStyle: 'italic', textAlign: 'center' },
+    
+    // Estilo Flat da Categoria
+    flatCatItem: { 
+        backgroundColor: '#F8FAFC', // Cor do fundo da tela!
+        paddingVertical: 16, 
+        paddingHorizontal: 8,
+        borderBottomWidth: 1, 
+        borderColor: '#E2E8F0', 
+        flexDirection: 'row', 
         alignItems: 'center',
+        gap: 12
     },
-    catInfo: {
-        flexDirection: 'row',
+    catName: { fontSize: 16, fontWeight: '600', color: '#334155' },
+
+    // Estilos do Swipe
+    deleteAction: {
+        backgroundColor: '#EF4444', 
+        justifyContent: 'center',
         alignItems: 'center',
-        gap: 12, // Espaço entre o ícone de pasta e o nome
+        width: 80,
+        height: '100%', 
     },
-    catName: { 
-        fontSize: 16, 
-        fontWeight: '600', 
-        color: '#374151' 
+    deleteActionText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginTop: 4,
     },
-    deleteBtn: {
-        padding: 8, // Área de toque maior para não errar o dedo
-    },
-    btnWrapper: { 
-        alignItems: 'center', marginTop: 15 
-    },
-    saveBtn: { 
-        backgroundColor: '#10B981', width: '100%', maxWidth: 250 
-    },
-    actionsRow: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    actionBtn: {
-        padding: 8,
-    }
 });
