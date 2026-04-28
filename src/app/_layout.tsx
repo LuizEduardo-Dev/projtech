@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'expo-router/drawer';
 import { DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome5';
 import { useFormStore } from '../store/useFormStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function CustomDrawerContent(props: any) {
+    const insets = useSafeAreaInsets();
+
   const router = useRouter();
   const { categories, publishedForms } = useFormStore();
 
@@ -135,8 +137,8 @@ function CustomDrawerContent(props: any) {
       <TouchableOpacity
         style={{
           position: 'absolute',
-          bottom: 24,
-          right: 24,
+          bottom: insets.bottom + 24,
+          right: insets.right + 24,
           backgroundColor: '#10B981', // Verde
           width: 56,
           height: 56,
