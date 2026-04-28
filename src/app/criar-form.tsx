@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -20,50 +20,57 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export default function CriarFormulario() {
-    // 1. Lendo os Parâmetros da URL
     const { categoryId: paramCategoryId } = useLocalSearchParams<{ categoryId?: string }>();
     
-    // 2. Estados de Controle
     const [isFieldModalVisible, setFieldModalVisible] = useState(false);
-    // Modal de categoria só abre se NÃO recebemos o parâmetro na URL
     const [isCategoryModalVisible, setCategoryModalVisible] = useState(!paramCategoryId);
     const [chosenCategoryId, setChosenCategoryId] = useState<string | null>(paramCategoryId || null);
-    
     const [configFieldId, setConfigFieldId] = useState<string | null>(null);
 
     const router = useRouter();
     const { fields, addField, publishForm, categories } = useFormStore();
 
-    // 3. React Hook Form
     const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
         resolver: zodResolver(formSchema),
         defaultValues: { title: '' }
     });
 
-    // 4. Ações
+
+    useEffect(() => {
+        if (paramCategoryId) {
+
+            setChosenCategoryId(paramCategoryId);
+            setCategoryModalVisible(false);
+        } else {
+
+            setChosenCategoryId(null);
+            setCategoryModalVisible(true);
+        }
+    }, [paramCategoryId]);
+
     const handleSelectCategory = (id: string) => {
         setChosenCategoryId(id);
         setCategoryModalVisible(false);
     };
 
-      const handleSelectType = (type: FieldType) => {
+    const handleSelectType = (type: FieldType) => {
         addField(type);
         setFieldModalVisible(false);
     };
 
     const renderRightActions = (id: string) => {
-    const { removeField } = useFormStore.getState();
-    return (
-        <TouchableOpacity 
-            style={styles.deleteAction} 
-            onPress={() => removeField(id)}
-            activeOpacity={0.6}
-        >
-            <FontAwesome name="trash" size={20} color="white" />
-            <Text style={styles.deleteActionText}>Apagar</Text>
-        </TouchableOpacity>
-    );
-};
+        const { removeField } = useFormStore.getState();
+        return (
+            <TouchableOpacity 
+                style={styles.deleteAction} 
+                onPress={() => removeField(id)}
+                activeOpacity={0.6}
+            >
+                <FontAwesome name="trash" size={20} color="white" />
+                <Text style={styles.deleteActionText}>Apagar</Text>
+            </TouchableOpacity>
+        );
+    };
 
     const onSubmit = (data: FormData) => {
         if (!chosenCategoryId) {
@@ -74,7 +81,7 @@ export default function CriarFormulario() {
             return Alert.alert('Atenção', 'Adicione pelo menos uma pergunta.');
         }
 
-        // Atualizamos o Zustand com os dados validados antes de publicar
+        // Atualiza de forma síncrona o Zustand antes de disparar a publicação
         useFormStore.setState({ title: data.title, selectedCategoryId: chosenCategoryId });
         publishForm();
         router.replace('/');
@@ -95,7 +102,6 @@ export default function CriarFormulario() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.screen} keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 80}>
             <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
                 
-
                 <View style={styles.flatSection}>
                     <Text style={styles.flatLabel}>Título da Auditoria</Text>
                     <Controller
@@ -104,7 +110,7 @@ export default function CriarFormulario() {
                         render={({ field: { onChange, value } }) => (
                             <View>
                                 <Input
-                                    placeholder="Ex: Checklist de Frota"
+                                    placeholder="Ex: Checklist de Estoque"
                                     value={value}
                                     onChangeText={onChange}
                                     style={[styles.flatInput, errors.title && styles.inputError]}
@@ -115,76 +121,68 @@ export default function CriarFormulario() {
                     />
                 </View>
 
-                {/* Linha separadora discreta */}
                 <View style={styles.separator} />
 
-                {/* Sessão de Perguntas (Em breve com Drag and Drop!) */}
                <View style={styles.fieldsHeader}>
                     <Text style={styles.flatLabel}>Perguntas ({fields.length})</Text>
-                    {/* O botão em forma de texto sumiu daqui! */}
                 </View>
 
                 {fields.length === 0 ? (
-    <View style={styles.emptyState}>
-        <FontAwesome name="clipboard-list" size={32} color="#CBD5E1" />
-        <Text style={styles.emptyText}>Comece a construir seu formulário</Text>
-    </View>
-) : (
-    fields.map((field) => (
+                    <View style={styles.emptyState}>
+                        <FontAwesome name="clipboard-list" size={32} color="#CBD5E1" />
+                        <Text style={styles.emptyText}>Comece a construir seu formulário</Text>
+                    </View>
+                ) : (
+                    fields.map((field) => (
+                        <Swipeable
+                            key={field.id}
+                            renderRightActions={() => renderRightActions(field.id)}
+                            friction={2} 
+                            rightThreshold={40} 
+                            containerStyle={styles.swipeableContainer}
+                        >
+                            <View style={styles.flatFieldItem}>
+                                <View style={styles.fieldHeader}>
+                                    <View style={styles.badgeRow}>
+                                        <Text style={styles.fieldTypeBadge}>{labelLegivel[field.type]}</Text>
+                                        {field.required && (
+                                            <View style={styles.requiredBadge}>
+                                                <Text style={styles.requiredBadgeText}>Obrigatório</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    
+                                    <TouchableOpacity 
+                                        onPress={() => setConfigFieldId(configFieldId === field.id ? null : field.id)}
+                                    >
+                                        <FontAwesome 
+                                            name="cog" 
+                                            size={16} 
+                                            color={configFieldId === field.id ? "#2563EB" : "#94A3B8"} 
+                                        />
+                                    </TouchableOpacity>
+                                </View>
 
-        <Swipeable
-            key={field.id}
-            renderRightActions={() => renderRightActions(field.id)}
-            friction={2} // Resistência ao deslizar
-            rightThreshold={40} // Distância para ativar
-            containerStyle={styles.swipeableContainer}
-            
-        >
-            <View style={styles.flatFieldItem}>
-                <View style={styles.fieldHeader}>
-                    <View style={styles.badgeRow}>
-                        <Text style={styles.fieldTypeBadge}>{labelLegivel[field.type]}</Text>
-                        {field.required && (
-                            <View style={styles.requiredBadge}>
-                                <Text style={styles.requiredBadgeText}>Obrigatório</Text>
+                                <Input
+                                    placeholder="Digite a pergunta..."
+                                    value={field.label}
+                                    onChangeText={(text) => useFormStore.getState().updateField(field.id, { label: text })}
+                                    style={styles.flatInputSecondary}
+                                />
+
+                                {configFieldId === field.id && (
+                                    <View style={styles.fieldConfigPanel}>
+                                        <Checkbox 
+                                            label="Campo Obrigatório?" 
+                                            checked={field.required} 
+                                            onPress={() => useFormStore.getState().updateField(field.id, { required: !field.required })}
+                                        />
+                                    </View>
+                                )}
                             </View>
-                        )}
-                    </View>
-                    
-                    {/* Botão de lápis simplificado na direita */}
-                    <TouchableOpacity 
-                        onPress={() => setConfigFieldId(configFieldId === field.id ? null : field.id)}
-                    >
-                        <FontAwesome 
-                            name="cog" 
-                            size={16} 
-                            color={configFieldId === field.id ? "#2563EB" : "#94A3B8"} 
-                        />
-                    </TouchableOpacity>
-                </View>
-
-                <Input
-                    placeholder="Digite a pergunta..."
-                    value={field.label}
-                    onChangeText={(text) => useFormStore.getState().updateField(field.id, { label: text })}
-                    style={styles.flatInputSecondary}
-                />
-
-                {/* Configurações Avançadas */}
-                {configFieldId === field.id && (
-                    <View style={styles.fieldConfigPanel}>
-                        <Checkbox 
-                            label="Campo Obrigatório?" 
-                            checked={field.required} 
-                            onPress={() => useFormStore.getState().updateField(field.id, { required: !field.required })}
-                        />
-                    </View>
-                )}
-            </View>
-        </Swipeable>
+                        </Swipeable>
                     ))
                 )}
-
 
                 <View style={styles.fabContainer}>
                     <TouchableOpacity style={styles.fabBtn} onPress={() => setFieldModalVisible(true)}>
@@ -198,7 +196,7 @@ export default function CriarFormulario() {
 
             </ScrollView>
 
-            {/* MODAL 1: ESCOLHER CATEGORIA (Aparece 1x se vier do botão global) */}
+            {/* MODAL 1: ESCOLHER CATEGORIA */}
             <Modal visible={isCategoryModalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -214,7 +212,6 @@ export default function CriarFormulario() {
                             ))}
                         </ScrollView>
 
-               
                         <TouchableOpacity onPress={() => router.replace('/')} style={{marginTop: 16, alignItems: 'center'}}>
                             <Text style={{color: '#64748B'}}>Cancelar e voltar</Text>
                         </TouchableOpacity>
@@ -222,8 +219,7 @@ export default function CriarFormulario() {
                 </View>
             </Modal>
 
-            {/* MODAL 2: TIPO DE CAMPO (Inalterado, apenas cores atualizadas no CSS) */}
-             {/* Modal de Seleção de Tipo (Inalterado) */}
+            {/* MODAL 2: TIPO DE CAMPO */}
             <Modal
                 visible={isFieldModalVisible}
                 transparent={true}
@@ -257,7 +253,7 @@ export default function CriarFormulario() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: '#F8FAFC' }, // Slate 50 (Bem limpo)
+    screen: { flex: 1, backgroundColor: '#F8FAFC' }, // Slate 50
     scrollContent: { padding: 24 },
     flatSection: { marginBottom: 16 },
     flatLabel: { fontSize: 18, fontWeight: '700', color: '#0F172A', marginBottom: 8 },
