@@ -1,30 +1,62 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList } from 'react-native';
-import * as ImagePicker from 'expo-image-picker'; 
+import * as ImagePicker from 'expo-image-picker';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { Checkbox } from '../ui/Checkbox'; 
+import { Checkbox } from '../ui/Checkbox';
 import { Field } from '../../store/useFormStore';
 import FontAwesome from '@expo/vector-icons/FontAwesome5';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Platform } from 'react-native';
+import { z } from 'zod';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 interface FormRendererProps {
   title: string;
   fields: Field[];
-  onSubmit: (answers: Record<string, any>, globalAttachments: string[]) => void;  
+  onSubmit: (answers: Record<string, any>, globalAttachments: string[]) => void;
 }
 
 export function FormRenderer({ title, fields, onSubmit }: FormRendererProps) {
-  const [answers, setAnswers] = useState<Record<string, any>>({});
-  
+
   const [globalAttachments, setGlobalAttachments] = useState<string[]>([]);
 
-  const [showDatePicker, setShowDatePicker] = useState<string | null> (null);
+  const [showDatePicker, setShowDatePicker] = useState<string | null>(null);
 
-  const handleAnswerChange = (id: string, value: any) => {
-    setAnswers((prev) => ({ ...prev, [id]: value }));
+  const buildDynamicSchema = (fields: Field[]) => {
+    const schemaShape: Record<string, z.ZodTypeAny> = {};
+
+    fields.forEach((field) => {
+      if (field.required) {
+        if (field.type === 'text') {
+          schemaShape[field.id] = z.string({ message: 'Este campo é obrigatório.' }).min(1, 'Este campo é obrigatório.');
+        } else if (field.type === 'number') {
+          schemaShape[field.id] = z.string({ message: 'Valor numérico obrigatório.' }).min(1, 'Valor numérico obrigatório.');
+        } else if (field.type === 'date') {
+          schemaShape[field.id] = z.string({ message: 'Data obrigatória.' }).min(1, 'Data obrigatória.');
+        } else if (field.type === 'boolean') {
+          schemaShape[field.id] = z.boolean({ message: 'Você precisa confirmar esta opção.' }).refine(val => val === true, 'Você precisa confirmar esta opção.');
+        }
+      } else {
+        if (field.type === 'boolean') {
+          schemaShape[field.id] = z.boolean().optional();
+        } else {
+          schemaShape[field.id] = z.string().optional();
+        }
+      }
+    });
+
+    return z.object(schemaShape);
   };
+
+  const schema = buildDynamicSchema(fields);
+
+  type FormValues = z.infer<typeof schema>;
+
+  const { control, handleSubmit, formState: { errors } } = useForm<FormValues>({
+    resolver: zodResolver(schema)
+  })
 
   const handlePickGlobalImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -42,14 +74,18 @@ export function FormRenderer({ title, fields, onSubmit }: FormRendererProps) {
     setGlobalAttachments((prev) => prev.filter(item => item !== uri));
   };
 
-  const renderField = (field: Field) => {
+  const renderField = (
+    field: Field, 
+    value: string | boolean | undefined, 
+    onChange: (val: string | boolean) => void
+  ) => {
     switch (field.type) {
       case 'text':
         return (
           <Input
             placeholder="Digite sua resposta..."
-            value={answers[field.id] || ''}
-            onChangeText={(text) => handleAnswerChange(field.id, text)}
+             value={(value as string) || ''} 
+            onChangeText={onChange}
             style={styles.fieldInput}
           />
         );
@@ -58,76 +94,85 @@ export function FormRenderer({ title, fields, onSubmit }: FormRendererProps) {
           <Input
             placeholder="0"
             keyboardType="numeric"
-            value={answers[field.id] || ''}
-            onChangeText={(text) => handleAnswerChange(field.id, text)}
+            value={(value as string) || ''} 
+            onChangeText={onChange}
             style={styles.fieldInput}
           />
         );
       case 'boolean':
-      return (
+        return (
           <Checkbox
-            label={answers[field.id] ? 'Confirmado' : 'Marcar para confirmar'}
-            checked={!!answers[field.id]}
-            onPress={() => handleAnswerChange(field.id, !answers[field.id])}
+            label={value ? 'Confirmado' : 'Marcar para confirmar'}
+            checked={!!value}
+             onPress={() => onChange(!(value as boolean))} 
           />
         );
-
-        case 'date':
-
-        const currentDate = answers[field.id] ? new Date(answers[field.id]) : new Date();
-
-            return(
-               <View>
-            {/* O Botão que o usuário clica para abrir o calendário */}
-            <TouchableOpacity 
-              style={styles.datePickerBtn} 
-              onPress={() => setShowDatePicker(field.id)}
-            >
+      case 'date':
+         const currentDate = value ? new Date(value as string) : new Date();
+        
+        return (
+          <View>
+            <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowDatePicker(field.id)}>
               <FontAwesome name="calendar-alt" size={16} color="#4B5563" />
               <Text style={styles.datePickerText}>
-                {answers[field.id] ? currentDate.toLocaleDateString('pt-BR') : 'Selecionar uma data...'}
+                {value ? currentDate.toLocaleDateString('pt-BR') : 'Selecionar uma data...'}
               </Text>
             </TouchableOpacity>
-
-            {/* O Calendário nativo invisível que só aparece quando o estado permite */}
+            
             {showDatePicker === field.id && (
               <DateTimePicker
                 value={currentDate}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={(event, selectedDate) => {
-                  setShowDatePicker(null); // Esconde o calendário ao selecionar
+                  setShowDatePicker(null);
                   if (event.type === 'set' && selectedDate) {
-                    handleAnswerChange(field.id, selectedDate.toISOString());
+                    onChange(selectedDate.toISOString());
                   }
                 }}
               />
             )}
           </View>
-            );
-
+        );
       default:
         return null;
     }
   };
 
-  
+  const onValidSubmit = (data: Record<string, any>) => {
+
+    onSubmit(data, globalAttachments);
+  };
+
   return (
     <View style={styles.screenContainer}>
-      {/* <Text style={styles.screenTitle}>{title}</Text> */}
-      
+
       {fields.map((field) => (
         <View key={field.id} style={styles.fieldContainer}>
           <Text style={styles.label}>
             {field.label} {field.required && <Text style={styles.required}>*</Text>}
           </Text>
-          {renderField(field)}
+
+          <Controller
+            control={control}
+            name={field.id} // O ID único da pergunta é o nome do campo pro RHF
+            render={({ field: { onChange, value } }) => (
+              <View>
+                {renderField(field, value as string | boolean | undefined, onChange)}
+                {errors[field.id] && (
+                  <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, fontWeight: '500' }}>
+                    {String(errors[field.id]?.message)}
+                  </Text>
+                )}
+              </View>
+            )}
+          />
         </View>
       ))}
-  
+
       <View style={styles.attachmentsSection}>
         <Text style={styles.attachmentsTitle}>Anexos Gerais / Fotos do Ambiente</Text>
-        
+
         {globalAttachments.length > 0 && (
           <FlatList
             data={globalAttachments}
@@ -145,31 +190,30 @@ export function FormRenderer({ title, fields, onSubmit }: FormRendererProps) {
             )}
           />
         )}
-        
+
         <TouchableOpacity style={styles.addAttachmentBtn} onPress={handlePickGlobalImage}>
           <Text style={styles.addAttachmentBtnText}> Anexar Arquivo</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.submitContainer}>
-        <Button 
-          label="Enviar" 
-          onPress={() => onSubmit(answers, globalAttachments)} 
-          style={styles.submitBtn} 
+        <Button
+          label="Enviar"
+          onPress={handleSubmit(onValidSubmit)}
+          style={styles.submitBtn}
         />
       </View>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   screenContainer: {
-    backgroundColor: 'white', 
+    backgroundColor: 'white',
     flex: 1,
     paddingBottom: 40,
   },
   screenTitle: {
-    fontSize: 24, 
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 24,
@@ -199,10 +243,10 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     backgroundColor: '#2563EB',
-    width: '100%', 
+    width: '100%',
     maxWidth: 300, // Limita largura em tablets
   },
-  
+
   attachmentsSection: {
     marginTop: 24,
     paddingHorizontal: 20,

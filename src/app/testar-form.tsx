@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFormStore } from '../store/useFormStore';
 import { FormRenderer } from '../components/form-renderer/FormRenderer';
 
+
 export default function TestarFormulario() {
     const router = useRouter();
      const { formId } = useLocalSearchParams<{ formId: string }>(); 
@@ -18,7 +19,7 @@ export default function TestarFormulario() {
             "Auditoria Finalizada!", 
             "Os dados foram salvos com sucesso.",
             [
-                { text: "OK", onPress: () => router.replace('/') } // Volta pra home ao terminar!
+                { text: "OK", onPress: () => router.replace('/') } 
             ]
         );
     };
@@ -39,6 +40,8 @@ export default function TestarFormulario() {
             </View>
         );
     }
+
+
 
      return (
         <KeyboardAvoidingView>
